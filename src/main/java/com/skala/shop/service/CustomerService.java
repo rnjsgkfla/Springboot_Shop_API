@@ -1,7 +1,12 @@
 package com.skala.shop.service;
 
+import com.skala.shop.dto.CustomerRegistrationRequest;
+import com.skala.shop.dto.CustomerResponse;
+import com.skala.shop.dto.LoginRequest;
+import com.skala.shop.dto.LoginResponse;
 import com.skala.shop.dto.OrderItemDto;
 import com.skala.shop.dto.OrderListDto;
+import com.skala.shop.dto.OrderRequest;
 import com.skala.shop.entity.Customer;
 import com.skala.shop.entity.OrderItem;
 import com.skala.shop.entity.Product;
@@ -10,8 +15,11 @@ import com.skala.shop.exception.ErrorCode;
 import com.skala.shop.repository.CustomerProductRepository;
 import com.skala.shop.repository.CustomerRepository;
 import com.skala.shop.repository.ProductRepository;
+import com.skala.shop.repository.WishRepository;
+import com.skala.shop.security.JwtTokenProvider;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,294 +28,200 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class CustomerService {
 
-    private static final Double INITIAL_POINT = 1_000_000.0;
+    private static final double INITIAL_POINT = 1_000_000.0;
+    private static final double REFERRAL_REWARD = 10_000.0;
 
     private final CustomerRepository customerRepository;
     private final ProductRepository productRepository;
     private final CustomerProductRepository customerProductRepository;
+    private final WishRepository wishRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtTokenProvider jwtTokenProvider;
 
-    // 전체 고객 목록 조회
-    public List<Customer> findAll() {
-        return customerRepository.findAll();
+    public List<CustomerResponse> findAll() {
+        return customerRepository.findAll().stream()
+            .map(CustomerResponse::from)
+            .toList();
     }
 
-    // 고객 상세 정보와 주문상품 목록 조회
     public OrderListDto findById(String customerId) {
         Customer customer = getCustomer(customerId);
-
-        List<OrderItemDto> products =
-                customerProductRepository
-                        .findByCustomerCustomerId(customerId)
-                        .stream()
-                        .map(this::convertToOrderItemDto)
-                        .toList();
+        List<OrderItemDto> products = customerProductRepository
+            .findByCustomerCustomerId(customerId)
+            .stream()
+            .map(this::convertToOrderItemDto)
+            .toList();
 
         return OrderListDto.builder()
-                .customerId(customer.getCustomerId())
-                .customerPoint(customer.getCustomerPoint())
-                .products(products)
-                .build();
+            .customerId(customer.getCustomerId())
+            .customerPoint(customer.getCustomerPoint())
+            .products(products)
+            .build();
     }
 
-    // 고객 생성
     @Transactional
-    public Customer create(Customer customer) {
-        validateCustomerForCreate(customer);
+    public CustomerResponse create(CustomerRegistrationRequest request) {
+        if (customerRepository.existsById(request.customerId())) {
+            throw new BusinessException(ErrorCode.DUPLICATE_CUSTOMER_ID);
+        }
 
-        if (customerRepository.existsById(
-                customer.getCustomerId())) {
-            throw new BusinessException(
-                    ErrorCode.DUPLICATE_CUSTOMER_ID
+        Customer referrer = findReferrer(request);
+        double initialPoint = INITIAL_POINT;
+        if (referrer != null) {
+            initialPoint += REFERRAL_REWARD;
+            referrer.setCustomerPoint(
+                referrer.getCustomerPoint() + REFERRAL_REWARD
             );
         }
 
-        customer.setCustomerPoint(INITIAL_POINT);
-
-        return customerRepository.save(customer);
-    }
-
-    // 고객 로그인
-    public Customer login(
-            String customerId,
-            String customerPassword
-    ) {
-        if (customerId == null
-                || customerId.isBlank()
-                || customerPassword == null
-                || customerPassword.isBlank()) {
-            throw new BusinessException(
-                    ErrorCode.INVALID_REQUEST
-            );
-        }
-
-        Customer customer = customerRepository
-                .findById(customerId)
-                .orElseThrow(() ->
-                        new BusinessException(
-                                ErrorCode.INVALID_CREDENTIALS
-                        )
-                );
-
-        if (!customer.getCustomerPassword()
-                .equals(customerPassword)) {
-            throw new BusinessException(
-                    ErrorCode.INVALID_CREDENTIALS
-            );
-        }
-
-        return customer;
-    }
-
-    // 고객 포인트 수정
-    @Transactional
-    public Customer update(Customer customer) {
-        if (customer == null
-                || customer.getCustomerId() == null
-                || customer.getCustomerId().isBlank()
-                || customer.getCustomerPoint() == null
-                || customer.getCustomerPoint() < 0) {
-            throw new BusinessException(
-                    ErrorCode.INVALID_REQUEST
-            );
-        }
-
-        Customer savedCustomer =
-                getCustomer(customer.getCustomerId());
-
-        savedCustomer.setCustomerPoint(
-                customer.getCustomerPoint()
+        Customer customer = new Customer(
+            request.customerId(),
+            passwordEncoder.encode(request.customerPassword()),
+            initialPoint
         );
+        customer.setReferrer(referrer);
 
-        return customerRepository.save(savedCustomer);
+        return CustomerResponse.from(customerRepository.save(customer));
     }
 
-    // 고객 삭제
+    public LoginResponse login(LoginRequest request) {
+        Customer customer = customerRepository.findById(request.customerId())
+            .orElseThrow(() ->
+                new BusinessException(ErrorCode.INVALID_CREDENTIALS)
+            );
+
+        if (!passwordEncoder.matches(
+                request.customerPassword(),
+                customer.getCustomerPassword())) {
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
+        }
+
+        return new LoginResponse(
+            jwtTokenProvider.createToken(customer.getCustomerId()),
+            "Bearer",
+            jwtTokenProvider.getExpirationMinutes()
+        );
+    }
+
+    @Transactional
+    public CustomerResponse update(String customerId, Double customerPoint) {
+        if (customerPoint == null || customerPoint < 0) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        Customer customer = getCustomer(customerId);
+        customer.setCustomerPoint(customerPoint);
+        return CustomerResponse.from(customer);
+    }
+
     @Transactional
     public void delete(String customerId) {
         Customer customer = getCustomer(customerId);
 
-        // 고객의 주문상품을 먼저 삭제해 외래키 오류 방지
-        List<OrderItem> orderItems =
-                customerProductRepository
-                        .findByCustomerCustomerId(customerId);
-
-        customerProductRepository.deleteAll(orderItems);
+        List<Customer> referredCustomers = customerRepository.findByReferrer(customer);
+        referredCustomers.forEach(referredCustomer -> referredCustomer.setReferrer(null));
+        wishRepository.deleteByCustomer(customer);
+        customerProductRepository.deleteAll(
+            customerProductRepository.findByCustomerCustomerId(customerId)
+        );
         customerRepository.delete(customer);
     }
 
-    // 상품 주문
     @Transactional
-    public OrderListDto placeOrder(
-            String customerId,
-            Long productId,
-            int quantity
-    ) {
-        validateOrderRequest(productId, quantity);
-
+    public OrderListDto placeOrder(String customerId, OrderRequest request) {
         Customer customer = getCustomer(customerId);
-        Product product = getProduct(productId);
+        Product product = getProduct(request.productId());
 
-        double orderPrice =
-                product.getProductPrice() * quantity;
-
-        if (customer.getCustomerPoint() < orderPrice) {
-            throw new BusinessException(
-                    ErrorCode.INSUFFICIENT_FUNDS
-            );
+        if (product.getStockQuantity() < request.quantity()) {
+            throw new BusinessException(ErrorCode.INSUFFICIENT_STOCK);
         }
 
-        // 고객 포인트 차감
-        customer.setCustomerPoint(
-                customer.getCustomerPoint() - orderPrice
-        );
+        double orderPrice = product.getProductPrice() * request.quantity();
+        if (customer.getCustomerPoint() < orderPrice) {
+            throw new BusinessException(ErrorCode.INSUFFICIENT_FUNDS);
+        }
 
-        // 같은 상품을 이미 주문했다면 기존 수량 증가
-        OrderItem orderItem =
-                customerProductRepository
-                        .findByCustomerAndProduct(
-                                customer,
-                                product
-                        )
-                        .orElseGet(() ->
-                                new OrderItem(
-                                        customer,
-                                        product,
-                                        0
-                                )
-                        );
+        customer.setCustomerPoint(customer.getCustomerPoint() - orderPrice);
+        product.decreaseStock(request.quantity());
 
-        orderItem.addQuantity(quantity);
-
-        customerRepository.save(customer);
+        OrderItem orderItem = customerProductRepository
+            .findByCustomerAndProduct(customer, product)
+            .orElseGet(() -> new OrderItem(customer, product, 0));
+        orderItem.addQuantity(request.quantity());
         customerProductRepository.save(orderItem);
 
         return findById(customerId);
     }
 
-    // 주문 취소
     @Transactional
-    public OrderListDto cancelOrder(
-            String customerId,
-            Long productId,
-            int quantity
-    ) {
-        validateOrderRequest(productId, quantity);
-
+    public OrderListDto cancelOrder(String customerId, OrderRequest request) {
         Customer customer = getCustomer(customerId);
-        Product product = getProduct(productId);
-
-        OrderItem orderItem =
-                customerProductRepository
-                        .findByCustomerAndProduct(
-                                customer,
-                                product
-                        )
-                        .orElseThrow(() ->
-                                new BusinessException(
-                                        ErrorCode.ORDER_NOT_FOUND
-                                )
-                        );
-
-        if (orderItem.getQuantity() < quantity) {
-            throw new BusinessException(
-                    ErrorCode.INSUFFICIENT_QUANTITY
+        Product product = getProduct(request.productId());
+        OrderItem orderItem = customerProductRepository
+            .findByCustomerAndProduct(customer, product)
+            .orElseThrow(() ->
+                new BusinessException(ErrorCode.ORDER_NOT_FOUND)
             );
+
+        if (orderItem.getQuantity() < request.quantity()) {
+            throw new BusinessException(ErrorCode.INSUFFICIENT_QUANTITY);
         }
 
-        // 수량 감소
-        orderItem.decreaseQuantity(quantity);
-
-        // 취소 금액만큼 포인트 환급
-        double refundPrice =
-                product.getProductPrice() * quantity;
-
+        orderItem.decreaseQuantity(request.quantity());
         customer.setCustomerPoint(
-                customer.getCustomerPoint() + refundPrice
+            customer.getCustomerPoint()
+                + product.getProductPrice() * request.quantity()
         );
+        product.increaseStock(request.quantity());
 
-        // 남은 수량이 0이면 OrderItem 삭제
         if (orderItem.getQuantity() == 0) {
             customerProductRepository.delete(orderItem);
-        } else {
-            customerProductRepository.save(orderItem);
         }
-
-        customerRepository.save(customer);
 
         return findById(customerId);
     }
 
-    // 고객 조회 공통 메서드
-    private Customer getCustomer(String customerId) {
-        if (customerId == null
-                || customerId.isBlank()) {
-            throw new BusinessException(
-                    ErrorCode.INVALID_REQUEST
-            );
+    private Customer findReferrer(CustomerRegistrationRequest request) {
+        String referrerId = request.referrerId();
+        if (referrerId == null || referrerId.isBlank()) {
+            return null;
         }
-
-        return customerRepository.findById(customerId)
-                .orElseThrow(() ->
-                        new BusinessException(
-                                ErrorCode.CUSTOMER_NOT_FOUND
-                        )
-                );
+        if (referrerId.equals(request.customerId())) {
+            throw new BusinessException(ErrorCode.INVALID_REFERRER);
+        }
+        return customerRepository.findById(referrerId)
+            .orElseThrow(() ->
+                new BusinessException(ErrorCode.INVALID_REFERRER)
+            );
     }
 
-    // 상품 조회 공통 메서드
+    private Customer getCustomer(String customerId) {
+        if (customerId == null || customerId.isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+        return customerRepository.findById(customerId)
+            .orElseThrow(() ->
+                new BusinessException(ErrorCode.CUSTOMER_NOT_FOUND)
+            );
+    }
+
     private Product getProduct(Long productId) {
         if (productId == null) {
-            throw new BusinessException(
-                    ErrorCode.INVALID_REQUEST
-            );
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
-
         return productRepository.findById(productId)
-                .orElseThrow(() ->
-                        new BusinessException(
-                                ErrorCode.PRODUCT_NOT_FOUND
-                        )
-                );
-    }
-
-    // 고객 생성 입력값 검증
-    private void validateCustomerForCreate(
-            Customer customer
-    ) {
-        if (customer == null
-                || customer.getCustomerId() == null
-                || customer.getCustomerId().isBlank()
-                || customer.getCustomerPassword() == null
-                || customer.getCustomerPassword().isBlank()) {
-            throw new BusinessException(
-                    ErrorCode.INVALID_REQUEST
+            .orElseThrow(() ->
+                new BusinessException(ErrorCode.PRODUCT_NOT_FOUND)
             );
-        }
     }
 
-    // 주문 입력값 검증
-    private void validateOrderRequest(
-            Long productId,
-            int quantity
-    ) {
-        if (productId == null || quantity <= 0) {
-            throw new BusinessException(
-                    ErrorCode.INVALID_REQUEST
-            );
-        }
-    }
-
-    // OrderItem 엔티티를 DTO로 변환
-    private OrderItemDto convertToOrderItemDto(
-            OrderItem orderItem
-    ) {
+    private OrderItemDto convertToOrderItemDto(OrderItem orderItem) {
         Product product = orderItem.getProduct();
-
         return OrderItemDto.builder()
-                .productId(product.getId())
-                .productName(product.getProductName())
-                .productPrice(product.getProductPrice())
-                .quantity(orderItem.getQuantity())
-                .build();
+            .productId(product.getId())
+            .productName(product.getProductName())
+            .productPrice(product.getProductPrice())
+            .quantity(orderItem.getQuantity())
+            .build();
     }
 }

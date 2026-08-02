@@ -4,6 +4,8 @@ import com.skala.shop.entity.Product;
 import com.skala.shop.exception.BusinessException;
 import com.skala.shop.exception.ErrorCode;
 import com.skala.shop.repository.ProductRepository;
+import com.skala.shop.repository.CustomerProductRepository;
+import com.skala.shop.repository.WishRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -15,6 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class ProductService {
 
     private final ProductRepository productRepository;
+    private final CustomerProductRepository customerProductRepository;
+    private final WishRepository wishRepository;
 
     // 전체 상품 조회
     public List<Product> findAll() {
@@ -70,6 +74,7 @@ public class ProductService {
         savedProduct.setProductPrice(
                 product.getProductPrice()
         );
+        savedProduct.setStockQuantity(product.getStockQuantity());
 
         return productRepository.save(savedProduct);
     }
@@ -78,6 +83,10 @@ public class ProductService {
     @Transactional
     public void delete(Long id) {
         Product product = getProduct(id);
+        if (customerProductRepository.existsByProduct(product)
+                || wishRepository.existsByProduct(product)) {
+            throw new BusinessException(ErrorCode.PRODUCT_IN_USE);
+        }
         productRepository.delete(product);
     }
 
@@ -103,7 +112,9 @@ public class ProductService {
                 || product.getProductName() == null
                 || product.getProductName().isBlank()
                 || product.getProductPrice() == null
-                || product.getProductPrice() <= 0) {
+                || product.getProductPrice() <= 0
+                || product.getStockQuantity() == null
+                || product.getStockQuantity() < 0) {
             throw new BusinessException(
                     ErrorCode.INVALID_REQUEST
             );

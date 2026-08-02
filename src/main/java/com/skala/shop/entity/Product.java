@@ -27,8 +27,20 @@ public class Product {
     @Column(name = "price", nullable = false)
     private Double productPrice;
 
+    @Column(name = "stock_quantity", nullable = false)
+    private Integer stockQuantity;
+
     public Product(String productName, Double productPrice) {
         this.productName = productName;
         this.productPrice = productPrice;
+        this.stockQuantity = 0;
+    }
+
+    public void decreaseStock(int quantity) {
+        this.stockQuantity -= quantity;
+    }
+
+    public void increaseStock(int quantity) {
+        this.stockQuantity += quantity;
     }
 }

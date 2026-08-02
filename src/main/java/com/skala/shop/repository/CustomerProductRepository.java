@@ -18,4 +18,6 @@ public interface CustomerProductRepository
             Customer customer,
             Product product
     );
+
+    boolean existsByProduct(Product product);
 }

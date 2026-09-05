@@ -1,0 +1,51 @@
+spring:
+  config:
+    activate:
+      on-profile: ai
+
+  datasource:
+    url: ${SHOP_DB_URL:jdbc:postgresql://localhost:5433/skala_shop}
+    username: ${SHOP_DB_USERNAME:postgres}
+    password: ${SHOP_DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    defer-datasource-initialization: true
+
+  h2:
+    console:
+      enabled: false
+
+  sql:
+    init:
+      mode: always
+
+  ai:
+    model:
+      chat: google-genai
+      embedding:
+        text: google-genai
+    google:
+      genai:
+        api-key: ${GOOGLE_API_KEY}
+        chat:
+          model: ${GEMINI_CHAT_MODEL:gemini-2.5-flash}
+          temperature: 0.2
+        embedding:
+          api-key: ${GOOGLE_API_KEY}
+          text:
+            model: ${GEMINI_EMBEDDING_MODEL:gemini-embedding-001}
+            dimensions: ${GEMINI_EMBEDDING_DIMENSIONS:1536}
+    vectorstore:
+      type: pgvector
+      pgvector:
+        dimensions: ${GEMINI_EMBEDDING_DIMENSIONS:1536}
+        initialize-schema: true
+        table-name: vector_store
+        remove-existing-vector-store-table: false
+
+app:
+  ai:
+    enabled: true

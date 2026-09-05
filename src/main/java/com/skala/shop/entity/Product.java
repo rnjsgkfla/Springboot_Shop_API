@@ -30,6 +30,18 @@ public class Product {
     @Column(name = "stock_quantity", nullable = false)
     private Integer stockQuantity;
 
+    @Column(name = "description", length = 1000)
+    private String description;
+
+    @Column(name = "category", length = 50)
+    private String category;
+
+    @Column(name = "brand", length = 50)
+    private String brand;
+
+    @Column(name = "tags", length = 500)
+    private String tags;
+
     public Product(String productName, Double productPrice) {
         this.productName = productName;
         this.productPrice = productPrice;

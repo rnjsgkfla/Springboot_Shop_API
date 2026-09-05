@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @RestController
 @RequestMapping("/api/products")
@@ -32,6 +33,16 @@ public class ProductController {
         return ResponseEntity.ok(
                 productService.findAll()
         );
+    }
+
+    @GetMapping("/search")
+    @Operation(summary = "상품 검색", description = "키워드, 최고 가격, 카테고리로 상품을 검색합니다.")
+    public ResponseEntity<List<Product>> search(
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) Double maxPrice,
+            @RequestParam(required = false) String category
+    ) {
+        return ResponseEntity.ok(productService.search(query, maxPrice, category));
     }
 
     // 상품 상세 조회

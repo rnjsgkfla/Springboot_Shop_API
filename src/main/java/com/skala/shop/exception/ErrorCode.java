@@ -17,6 +17,7 @@ public enum ErrorCode {
     WISH_DUPLICATED(HttpStatus.CONFLICT, "WISH_DUPLICATED", "이미 찜한 상품입니다."),
     WISH_NOT_FOUND(HttpStatus.NOT_FOUND, "WISH_NOT_FOUND", "찜한 상품을 찾을 수 없습니다."),
     INSUFFICIENT_QUANTITY(HttpStatus.CONFLICT, "INSUFFICIENT_QUANTITY", "취소 수량이 주문 수량보다 많습니다."),
+    AI_QUOTA_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "AI_QUOTA_EXCEEDED", "오늘의 Gemini 무료 사용량을 모두 사용했습니다. 할당량이 초기화된 후 다시 시도해 주세요."),
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "요청 값을 확인해 주세요."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "서버 내부 오류가 발생했습니다.");
 

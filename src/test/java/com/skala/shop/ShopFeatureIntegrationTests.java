@@ -109,6 +109,22 @@ class ShopFeatureIntegrationTests {
     }
 
     @Test
+    void productsCanBeSearchedByNaturalAttributes() throws Exception {
+        mockMvc.perform(get("/api/products/search")
+                .param("query", "재택근무")
+                .param("maxPrice", "30000"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(2))
+            .andExpect(jsonPath("$[0].description").isNotEmpty());
+    }
+
+    @Test
+    void webAppIsPubliclyAvailable() throws Exception {
+        mockMvc.perform(get("/"))
+            .andExpect(status().isOk());
+    }
+
+    @Test
     void invalidReferralAndInsufficientStockAreRejected() throws Exception {
         mockMvc.perform(post("/api/customers")
                 .contentType(MediaType.APPLICATION_JSON)

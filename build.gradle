@@ -7,6 +7,10 @@ plugins {
 group = 'com.skala'
 version = '0.0.1-SNAPSHOT'
 
+ext {
+	springAiVersion = '2.0.0'
+}
+
 java {
 	toolchain {
 		languageVersion = JavaLanguageVersion.of(21)
@@ -28,15 +32,27 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-configuration-processor'
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3'
 	implementation 'io.jsonwebtoken:jjwt-api:0.13.0'
+	implementation 'org.springframework.ai:spring-ai-starter-model-google-genai'
+	implementation 'org.springframework.ai:spring-ai-starter-model-google-genai-embedding'
+	implementation 'org.springframework.ai:spring-ai-starter-vector-store-pgvector'
+	implementation 'org.springframework.ai:spring-ai-vector-store-advisor'
+	implementation 'org.springframework.ai:spring-ai-rag'
 	compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
 	runtimeOnly 'com.h2database:h2'
+	runtimeOnly 'org.postgresql:postgresql'
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.13.0'
 	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.13.0'
 	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+dependencyManagement {
+	imports {
+		mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
+	}
 }
 
 tasks.named('test') {

@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Gemini가 상품 탐색부터 주문까지 돕는 AI SHOPPING">
+  <title>AI SHOPPING</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+
+  <section id="authView" class="auth-view">
+    <div class="auth-story">
+      <a class="brand" href="/" aria-label="AI SHOPPING 홈">
+        <span class="brand-mark">AI</span>
+        <span>AI SHOPPING</span>
+      </a>
+      <div class="auth-copy">
+        <p class="eyebrow">SHOP SMARTER, LIVE BETTER</p>
+        <h1>당신의 일상에<br><em>좋은 선택을.</em></h1>
+        <p>Gemini 쇼핑 컨시어지가 예산과 취향을 이해하고, 현재 재고 안에서 꼭 맞는 상품을 찾아드립니다.</p>
+      </div>
+      <div class="feature-row" aria-label="주요 기능">
+        <span>실시간 재고</span><span>개인화 추천</span><span>안전한 주문</span>
+      </div>
+    </div>
+
+    <div class="auth-panel">
+      <div class="auth-card">
+        <p class="section-label">WELCOME</p>
+        <h2 id="authTitle">다시 만나 반가워요</h2>
+        <p id="authSubtitle" class="muted">쇼핑을 계속하려면 로그인하세요.</p>
+
+        <div class="auth-tabs" role="tablist">
+          <button id="loginTab" class="tab active" type="button" role="tab">로그인</button>
+          <button id="registerTab" class="tab" type="button" role="tab">회원가입</button>
+        </div>
+
+        <form id="authForm">
+          <label>아이디<input id="customerId" autocomplete="username" minlength="3" maxlength="20" required></label>
+          <label>비밀번호<input id="password" type="password" autocomplete="current-password" minlength="8" required></label>
+          <label id="referrerField" class="hidden">추천인 아이디<input id="referrerId" maxlength="20"></label>
+          <button id="authSubmit" class="button primary wide" type="submit">로그인</button>
+        </form>
+        <p id="authError" class="form-error" role="alert"></p>
+      </div>
+    </div>
+  </section>
+
+  <div id="appShell" class="app-shell hidden">
+    <header class="topbar">
+      <a class="brand dark" href="/">
+        <span class="brand-mark">AI</span>
+        <span>AI SHOPPING</span>
+      </a>
+      <div class="topbar-actions">
+        <div id="aiStatus" class="status-pill"><span class="status-dot"></span><span>AI 확인 중</span></div>
+        <div class="points"><span>내 포인트</span><strong id="pointValue">—</strong></div>
+        <button id="logoutButton" class="button ghost" type="button">로그아웃</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div>
+          <p class="eyebrow">CURATED FOR <span id="customerName">YOU</span></p>
+          <h1>더 나은 일상을 위한<br><em>오늘의 발견.</em></h1>
+          <p>상품을 직접 둘러보거나, AI 컨시어지에게 자연스럽게 이야기해 보세요.</p>
+        </div>
+        <div class="hero-orbit" aria-hidden="true"><span>AI</span></div>
+      </section>
+
+      <div class="workspace">
+        <section class="catalog-panel">
+          <div class="section-heading">
+            <div><p class="section-label">DISCOVER</p><h2>상품 둘러보기</h2></div>
+            <button id="refreshButton" class="icon-button" type="button" aria-label="상품 새로고침">↻</button>
+          </div>
+
+          <form id="searchForm" class="search-bar">
+            <label class="search-input"><span>⌕</span><input id="searchQuery" placeholder="상품명, 용도, 태그로 검색"></label>
+            <input id="maxPrice" class="price-input" type="number" min="0" step="1000" placeholder="최대 가격">
+            <select id="categorySelect" aria-label="카테고리"><option value="">모든 카테고리</option></select>
+            <button class="button dark-button" type="submit">검색</button>
+          </form>
+
+          <div id="productGrid" class="product-grid" aria-live="polite"></div>
+
+          <section class="account-section">
+            <div class="section-heading compact">
+              <div><p class="section-label">MY SHOP</p><h2>찜과 구매 내역</h2></div>
+            </div>
+            <div class="account-grid">
+              <article><h3>찜한 상품 <span id="wishCount">0</span></h3><div id="wishList" class="mini-list"></div></article>
+              <article><h3>구매 상품 <span id="orderCount">0</span></h3><div id="orderList" class="mini-list"></div></article>
+            </div>
+          </section>
+        </section>
+
+        <aside class="ai-panel">
+          <div class="ai-header">
+            <div class="ai-avatar">✦</div>
+            <div><p class="section-label">AI CONCIERGE</p><h2>무엇이든 물어보세요</h2></div>
+            <button id="reindexButton" class="icon-button light" type="button" title="AI 지식 재색인" aria-label="AI 지식 재색인">↻</button>
+          </div>
+          <div class="quick-prompts" aria-label="빠른 질문">
+            <button type="button">3만원 이하 재택용 추천</button>
+            <button type="button">내 취향에 맞춰 추천</button>
+            <button type="button">환불 정책 알려줘</button>
+          </div>
+          <div id="chatMessages" class="chat-messages" aria-live="polite">
+            <div class="message assistant"><span class="message-name">AI SHOPPING</span><p>안녕하세요. 상품 추천부터 찜, 주문, 정책 안내까지 도와드릴게요.</p></div>
+          </div>
+          <div id="pendingActions" class="pending-actions"></div>
+          <form id="chatForm" class="chat-form">
+            <textarea id="chatInput" rows="1" placeholder="예산과 용도를 알려주세요" required></textarea>
+            <button type="submit" aria-label="메시지 전송">↑</button>
+          </form>
+          <p class="ai-note">AI는 실시간 상품·재고 정보만 사용하며, 주문은 확인 후 실행됩니다.</p>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="transactionDialog" class="transaction-dialog" aria-labelledby="transactionTitle">
+    <form id="transactionForm" class="transaction-modal">
+      <button id="transactionClose" class="modal-close" type="button" aria-label="닫기">×</button>
+      <div class="modal-icon" aria-hidden="true">↗</div>
+      <p id="transactionEyebrow" class="section-label">ORDER</p>
+      <h2 id="transactionTitle">상품 주문</h2>
+      <p id="transactionDescription" class="modal-description"></p>
+
+      <div class="transaction-summary">
+        <div><span>상품</span><strong id="transactionProduct"></strong></div>
+        <div><span id="transactionLimitLabel">구매 가능</span><strong id="transactionLimit"></strong></div>
+        <div><span id="transactionTotalLabel">결제 포인트</span><strong id="transactionTotal"></strong></div>
+      </div>
+
+      <label class="quantity-label" for="transactionQuantity">수량</label>
+      <div class="quantity-control">
+        <button id="quantityDecrease" type="button" aria-label="수량 줄이기">−</button>
+        <input id="transactionQuantity" type="number" min="1" value="1" inputmode="numeric" required>
+        <button id="quantityIncrease" type="button" aria-label="수량 늘리기">＋</button>
+      </div>
+      <p id="transactionError" class="modal-error" role="alert"></p>
+
+      <div class="modal-actions">
+        <button id="transactionCancel" class="button ghost" type="button">돌아가기</button>
+        <button id="transactionConfirm" class="button primary" type="submit">주문하기</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/app.js" defer></script>
+</body>
+</html>

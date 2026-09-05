@@ -7,6 +7,7 @@ import com.skala.shop.repository.ProductRepository;
 import com.skala.shop.repository.CustomerProductRepository;
 import com.skala.shop.repository.WishRepository;
 import java.util.List;
+import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +29,20 @@ public class ProductService {
     // ID로 상품 상세 조회
     public Product findById(Long id) {
         return getProduct(id);
+    }
+
+    public List<Product> search(String query, Double maxPrice, String category) {
+        String keyword = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        return productRepository.findAll().stream()
+                .filter(product -> maxPrice == null || product.getProductPrice() <= maxPrice)
+                .filter(product -> category == null || category.isBlank()
+                        || contains(product.getCategory(), category))
+                .filter(product -> keyword.isBlank()
+                        || contains(product.getProductName(), keyword)
+                        || contains(product.getDescription(), keyword)
+                        || contains(product.getBrand(), keyword)
+                        || contains(product.getTags(), keyword))
+                .toList();
     }
 
     // 상품 등록
@@ -75,6 +90,10 @@ public class ProductService {
                 product.getProductPrice()
         );
         savedProduct.setStockQuantity(product.getStockQuantity());
+        savedProduct.setDescription(product.getDescription());
+        savedProduct.setCategory(product.getCategory());
+        savedProduct.setBrand(product.getBrand());
+        savedProduct.setTags(product.getTags());
 
         return productRepository.save(savedProduct);
     }
@@ -119,5 +138,10 @@ public class ProductService {
                     ErrorCode.INVALID_REQUEST
             );
         }
+    }
+
+    private boolean contains(String value, String keyword) {
+        return value != null && value.toLowerCase(Locale.ROOT)
+                .contains(keyword.toLowerCase(Locale.ROOT));
     }
 }

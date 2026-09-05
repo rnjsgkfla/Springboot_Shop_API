@@ -23,6 +23,22 @@ spring:
       hibernate:
         format_sql: true
 
+  ai:
+    model:
+      chat: none
+      embedding:
+        text: none
+    vectorstore:
+      type: none
+    google:
+      genai:
+        embedding:
+          api-key: disabled
+
+app:
+  ai:
+    enabled: false
+
 server:
   port: 8080
 

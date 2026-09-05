@@ -1,5 +1,6 @@
 package com.skala.shop.exception;
 
+import com.google.genai.errors.ApiException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.stream.Collectors;
@@ -65,6 +66,17 @@ public class GlobalExceptionHandler {
             Exception exception,
             HttpServletRequest request
     ) {
+        ApiException aiException = findCause(exception, ApiException.class);
+        if (aiException != null && aiException.code() == 429) {
+            log.warn("Gemini quota exceeded at {}", request.getRequestURI());
+            return ResponseEntity.status(ErrorCode.AI_QUOTA_EXCEEDED.getStatus())
+                    .body(createResponse(
+                            ErrorCode.AI_QUOTA_EXCEEDED,
+                            ErrorCode.AI_QUOTA_EXCEEDED.getMessage(),
+                            request.getRequestURI()
+                    ));
+        }
+
         // 예상하지 못한 오류는 원인을 추적할 수 있도록 반드시 스택 트레이스와 함께 기록합니다.
         // 이 로그가 없으면 500 오류의 원인을 찾을 방법이 없습니다.
         log.error("Unexpected exception at {}", request.getRequestURI(), exception);
@@ -74,6 +86,17 @@ public class GlobalExceptionHandler {
                         ErrorCode.INTERNAL_ERROR.getMessage(),
                         request.getRequestURI()
                 ));
+    }
+
+    private <T extends Throwable> T findCause(Throwable throwable, Class<T> type) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (type.isInstance(current)) {
+                return type.cast(current);
+            }
+            current = current.getCause();
+        }
+        return null;
     }
 
     private ErrorResponse createResponse(ErrorCode errorCode, String message, String path) {
